@@ -1,18 +1,99 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-
   import { fade, blur, slide, scale } from 'svelte/transition';
-
   import {
-    Styles, Navbar, Container, NavbarBrand, Button, Card,
-    Modal, ModalBody, ModalFooter, ModalHeader
+    Styles, Navbar, Container, NavbarBrand, Button, Card, Alert,
+    Modal, ModalBody, ModalFooter, ModalHeader,
+    FormGroup, Label, Input
   } from 'sveltestrap';
+  import { Recaptcha, recaptcha } from 'svelte-recaptcha-v2';
+  import FingerprintJS from '@fingerprintjs/fingerprintjs'
+
+  let voteCount = 0;
+  let visitorId = '';
+  let loading = false;
+  let comment = '';
+
+  let alertSuccess = false;
+  let alertMessage = '';
+
+  const setAlert = (success: boolean, message: string) => {
+    alertSuccess = success;
+    alertMessage = message;
+  }
+  
+  const googleRecaptchaSiteKey = '6LdoaKgcAAAAAMrnLER6NKF2vmcahOGC52hqIAPP';
+
+  const onCaptchaSuccess = async (e) => {
+    try {
+      loading = true;
+      await fetch('https://tanjiro.vercel.app/api', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          comment,
+          fingerprint: visitorId,
+          captchaToken: e.detail.token
+        })
+      }).then(res => res.json());
+      setAlert(true, 'ส่งข้อมูลเรียบร้อย, ขอขอบคุณที่เข้าร่วมโหวต!!');
+    }catch(e){
+      setAlert(false, 'ไม่สามารถส่งข้อมูลได้ กรุณาลองใหม่อีกครั้ง');
+      console.error(e);
+    }finally{
+      // recaptcha.reset();
+      loading = false;
+      comment = '';
+    }
+  }
+
+  const onCaptchaError = (e) => {
+    setAlert(false, 'Captcha เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+    loading = false;
+    recaptcha.reset();
+  }
+
+  const submitBtn = async () => {
+    setAlert(false, '');
+
+    if (comment.replace(/\s/g, '').length == 0) {
+      setAlert(false, 'กรุณากรอกข้อความ');
+      return;
+    }
+    
+    loading = true;
+    setTimeout(() => {
+      recaptcha.execute();
+    }, 1000);
+  }
+  
+  let open = false;
+  const toggle = () => {
+    setAlert(false, '');
+    if (loading) return;
+    open = !open;
+  };
 
   let ready = false;
-  onMount(() => ready = true);
+  onMount(async () => {
+    try {
+      const res = await fetch('https://tanjiro.vercel.app/api', {
+        headers: {
+          'Accept': 'application/json'
+        }
+      }).then(res => res.json());
+      voteCount = res.count;
+    }catch(e) {}
 
-  let open = false;
-  const toggle = () => (open = !open);
+    const fp = await FingerprintJS.load();
+    const result = await fp.get();
+    visitorId = result.visitorId;
+
+    ready = true;
+  });
 </script>
 
 <Styles />
@@ -22,6 +103,16 @@
     <img src="img/hareshichan-white.png" alt="hareshi" style="max-height:28px;" />
   </NavbarBrand>
 </Navbar>
+
+<Recaptcha
+  sitekey={googleRecaptchaSiteKey}
+  badge={"top"}
+  size={"invisible"}
+  on:success={onCaptchaSuccess}
+  on:error={onCaptchaError}
+  on:expired={onCaptchaError}
+  on:close={onCaptchaError}
+/>
 
 <Container>
   <div class="text-center">
@@ -39,7 +130,7 @@
             <Card class="bg-transparent py-2" style="border:2px solid #544f51; border-radius:16px;">
               <p class="m-0 p-0" style="font-size:16pt; font-weight:500;">ผู้เข้าร่วมทั้งหมด</p>
               <p class="m-0 p-0" style="font-size:48pt; font-weight:700; color:#f3aec0; line-height:70px;">
-                10,000 <sup style="font-size:12pt; font-weight:400; color:#fefefe;">ท่าน</sup>
+                {voteCount.toLocaleString()} <sup style="font-size:12pt; font-weight:400; color:#fefefe;">ท่าน</sup>
               </p>
               <p class="m-0 p-0" style="font-size:14pt; font-weight:500;">อยากดูดาบพิฆาตอสูรที่ AIS PLAY</p>
             </Card>
@@ -107,14 +198,25 @@
   </div>
 {/if}
 
-<Modal centered isOpen={open} {toggle}>
-  <ModalHeader {toggle}>Modal title</ModalHeader>
+<Modal centered isOpen={open} backdrop={(loading) ? 'static' : true} {toggle}>
+  <ModalHeader {toggle}>โหวตให้ฉายที่ AIS PLAY</ModalHeader>
   <ModalBody>
-    Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod
-    tempor incididunt ut labore et dolore magna aliqua.
+    <Alert
+      color={(alertSuccess) ? 'success' : 'danger'}
+      isOpen={alertMessage.length > 0}
+      fade={false}
+    >
+      {alertMessage}
+    </Alert>
+
+    <FormGroup>
+      <Label for="comment">เหตุผลที่อยากดู Kimetsu no Yaiba: Yuukaku-hen ที่ AIS PLAY</Label>
+      <Input type="textarea" name="text" id="comment" placeholder="ระบุเหตุผลว่าทำไมถึงอยากดูที่ AIS PLAY" rows={5} bind:value={comment} readonly={loading} />
+    </FormGroup>
+
+    <small>ข้อความที่ส่งเข้ามาทั้งหมดจะถูกนำไปประกอบการพิจารณาด้วย</small>
   </ModalBody>
   <ModalFooter>
-    <Button color="primary" on:click={toggle}>Do Something</Button>
-    <Button color="secondary" on:click={toggle}>Cancel</Button>
+    <Button color="primary" block on:click={submitBtn} disabled={loading}>ลงคะแนนเสียง!</Button>
   </ModalFooter>
 </Modal>

@@ -10,6 +10,14 @@ body {
 	color: #fefefe !important;
 }
 
+img {
+	pointer-events: none;
+}
+
+.grecaptcha-badge {
+	visibility: hidden;
+}
+
 .vote-btn {
     font-size: 20pt !important;
     background-color: #ff769d !important;
