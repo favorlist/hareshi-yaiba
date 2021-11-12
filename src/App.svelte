@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
-  import { fade, blur, fly, slide, scale } from 'svelte/transition';
-  import { quintOut, quintIn } from 'svelte/easing';
+  import { fade, blur, slide, scale } from 'svelte/transition';
 
   import {
     Styles, Navbar, Container, NavbarBrand, Button, Card,
